@@ -1,0 +1,7 @@
+# Fins de ligne LF dans le dépôt, quel que soit le poste (Windows en dev, Linux en prod).
+* text=auto eol=lf
+*.ico binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.pdf binary

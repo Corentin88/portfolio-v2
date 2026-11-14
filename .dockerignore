@@ -1,0 +1,31 @@
+# Secrets et configuration locale : jamais dans le contexte de build
+.env*
+!.env.example
+
+# Données et états locaux (médias, compteurs, E2E) : fournis par les volumes
+storage/
+
+# Dépendances et sorties régénérées dans l'image
+node_modules/
+.next/
+src/generated/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+
+# Outillage et documents locaux
+.git/
+.github/
+.claude/
+.vscode/
+docs/
+AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
+Dockerfile
+.dockerignore
+compose*.yaml
+scripts/docker/
+*.log
+*.zip

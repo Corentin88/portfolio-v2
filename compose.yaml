@@ -1,0 +1,49 @@
+# Portfolio 2.0 — service applicatif seul (production locale Docker Desktop).
+# MariaDB n'est PAS gérée ici : l'application rejoint l'instance existante via
+# DATABASE_URL (.env.docker). Aucun port de base publié par ce fichier.
+#
+#   docker compose up -d --build     # construire et démarrer
+#   docker compose logs -f portfolio-v2
+#   docker compose down              # arrête le conteneur, volumes conservés
+name: portfolio-v2
+
+services:
+  portfolio-v2:
+    build:
+      context: .
+    image: portfolio-v2:local
+    container_name: portfolio-v2
+    restart: unless-stopped
+    init: true # PID 1 minimal : transmet SIGTERM à Node pour un arrêt propre
+    env_file:
+      - path: .env.docker
+        required: true
+    ports:
+      # Publié sur la boucle locale uniquement ; port hôte réglable sans modifier ce fichier.
+      - "127.0.0.1:${PORTFOLIO_HTTP_PORT:-3200}:3000"
+    extra_hosts:
+      # Natif sous Docker Desktop ; nécessaire sous Linux pour joindre un service de l'hôte.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - portfolio_v2_media:/data/media
+      - portfolio_v2_state:/data/state
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Volumes externes : créés une fois (scripts/docker/import-storage.ps1), jamais
+# supprimés par `docker compose down -v` ni par une reconstruction.
+volumes:
+  portfolio_v2_media:
+    name: portfolio_v2_media
+    external: true
+  portfolio_v2_state:
+    name: portfolio_v2_state
+    external: true

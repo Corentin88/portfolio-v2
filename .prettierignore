@@ -1,0 +1,4 @@
+# Documents locaux (dont la maquette de référence, à ne jamais reformater)
+docs/
+.claude/
+package-lock.json

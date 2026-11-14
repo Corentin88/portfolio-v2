@@ -1,0 +1,53 @@
+# Dépendances
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# Tests
+/coverage
+/playwright-report
+/test-results
+
+# Code généré (client Prisma)
+/src/generated/
+
+# Médias stockés en local
+/storage/
+
+# Variables d'environnement : seul le modèle sans secret est versionné
+.env*
+!.env.example
+!.env.docker.example
+
+# Divers
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+
+# Sauvegardes et dumps (scripts/docker/backup.ps1 écrit hors du dépôt ; filet de sécurité)
+/backups/
+*.sql.gz
+*.dump
+*.tar
+*.tar.gz
+*.zip
+
+# Journaux locaux
+*.log
+
+# Documentation et instructions d'agents privées (versionné ici pour survivre à
+# un clonage : .git/info/exclude reste propre à chaque copie locale)
+/docs/
+/AGENTS.md
+/.agents/
+/CLAUDE.md
+/CLAUDE.local.md
+/.claude/

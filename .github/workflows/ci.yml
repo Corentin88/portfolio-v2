@@ -1,0 +1,101 @@
+# Intégration continue Portfolio 2.0 : vérifications, tests, build, image Docker, E2E.
+# Données exclusivement fictives ; aucune base locale ou de production ; aucun déploiement.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  # lib/db.ts exige une URL au chargement ; le build ne se connecte jamais.
+  DATABASE_URL: mysql://build:build@127.0.0.1:1/build_only
+
+jobs:
+  quality:
+    name: Vérifications, tests unitaires, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run build
+
+  docker:
+    name: Image Docker (build seul, sans publication)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t portfolio-v2:ci .
+      - name: Démarrage du serveur sans base (healthcheck attendu en 503)
+        run: |
+          docker run -d --name app -p 127.0.0.1:3000:3000 \
+            -e DATABASE_URL="mysql://ci:ci@127.0.0.1:1/ci_absente?connectTimeout=1000&acquireTimeout=2000" \
+            -e AUTH_SECRET=ci-secret-fictif-sans-valeur-reelle-0123456789 \
+            portfolio-v2:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/robots.txt >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/robots.txt
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health)" = "503"
+          test "$(docker exec app id -u)" = "1000"
+      - if: always()
+        run: docker logs app || true
+
+  e2e:
+    name: E2E Playwright (MariaDB dédiée au workflow)
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      mariadb:
+        # Même version que l'instance locale `db` (12.1.2).
+        image: mariadb:12.1
+        env:
+          MARIADB_ROOT_PASSWORD: root-ci-fictif
+          MARIADB_DATABASE: portfolio_v2_e2e
+          MARIADB_USER: portfolio_v2
+          MARIADB_PASSWORD: ci-fictif
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=24
+    env:
+      # Base suffixée _e2e (garde-fou de e2e/support/e2e-env.ts) : vidée puis remplie de données fictives.
+      E2E_DATABASE_URL: mysql://portfolio_v2:ci-fictif@127.0.0.1:3306/portfolio_v2_e2e
+      AUTH_SECRET: ci-secret-fictif-sans-valeur-reelle-0123456789
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Resend désactivé par e2eServerEnv() : aucun e-mail envoyé.
+      - run: npm run e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

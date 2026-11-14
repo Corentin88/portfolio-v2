@@ -1,0 +1,390 @@
+// Portfolio 2.0 — MariaDB via le fournisseur "mysql" (Prisma 7).
+// L'URL de connexion est définie dans prisma.config.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─────────────────────────────── Énumérations ───────────────────────────────
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum HighlightKind {
+  FEATURE
+  IMPROVEMENT
+}
+
+enum MediaKind {
+  IMAGE
+  DOCUMENT
+}
+
+// ─────────────────────────────── Projets ───────────────────────────────
+
+model ProjectCategory {
+  id        String    @id @default(cuid()) @db.VarChar(30)
+  name      String    @unique @db.VarChar(60)
+  slug      String    @unique @db.VarChar(80)
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+
+  @@index([position])
+  @@map("project_categories")
+}
+
+// Visible publiquement si status = PUBLISHED et au moins une version PUBLISHED
+// (règle appliquée par le service, la base ne peut pas l'exprimer).
+model Project {
+  id             String        @id @default(cuid()) @db.VarChar(30)
+  title          String        @db.VarChar(120)
+  slug           String        @unique @db.VarChar(140)
+  summary        String        @db.VarChar(400)
+  context        String?       @db.VarChar(120)
+  badgeLabel     String?       @db.VarChar(40)
+  // Variante de couleur du badge (liste fermée validée par Zod) : état éditorial
+  // saisi à la main, indépendant du statut de publication.
+  badgeTone      String        @default("warning") @db.VarChar(10)
+  iconKey        String        @default("code") @db.VarChar(30) // liste fermée validée par Zod
+  featured       Boolean       @default(false)
+  status         ContentStatus @default(DRAFT)
+  publishedAt    DateTime? // date de première publication, conservée ensuite
+  archivedAt     DateTime?
+  position       Int           @default(0)
+  seoTitle       String?       @db.VarChar(70)
+  seoDescription String?       @db.VarChar(160)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  categoryId String          @db.VarChar(30)
+  category   ProjectCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  // Restrict sur tous les liens vers Media : un fichier utilisé ne peut pas disparaître.
+  coverMediaId String? @db.VarChar(30)
+  coverMedia   Media?  @relation("ProjectCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
+
+  // Logo importé : prioritaire sur iconKey (icône Lucide), qui reste le repli.
+  iconMediaId String? @db.VarChar(30)
+  iconMedia   Media?  @relation("ProjectIcon", fields: [iconMediaId], references: [id], onDelete: Restrict)
+
+  versions ProjectVersion[]
+
+  @@index([status, position])
+  @@index([categoryId])
+  @@index([coverMediaId])
+  @@index([iconMediaId])
+  @@map("projects")
+}
+
+model ProjectVersion {
+  id          String        @id @default(cuid()) @db.VarChar(30)
+  slug        String        @db.VarChar(20) // "v1", "v2"… unique au sein du projet
+  label       String        @db.VarChar(60)
+  periodLabel String?       @db.VarChar(80)
+  releasedAt  DateTime?     @db.Date
+  description String        @db.Text
+  sourceUrl   String?       @db.VarChar(500)
+  demoUrl     String?       @db.VarChar(500)
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  archivedAt  DateTime?
+  position    Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  projectId String  @db.VarChar(30)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Image de la modale : couverture de version → 1re capture → couverture du projet → couverture générée.
+  coverMediaId String? @db.VarChar(30)
+  coverMedia   Media?  @relation("VersionCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
+
+  highlights   VersionHighlight[]
+  challenges   VersionChallenge[]
+  technologies VersionTechnology[]
+  screenshots  VersionScreenshot[]
+
+  @@unique([projectId, slug])
+  @@index([projectId, status, position])
+  @@index([coverMediaId])
+  @@map("project_versions")
+}
+
+model VersionHighlight {
+  id       String        @id @default(cuid()) @db.VarChar(30)
+  kind     HighlightKind
+  text     String        @db.VarChar(300)
+  position Int           @default(0)
+
+  versionId String         @db.VarChar(30)
+  version   ProjectVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId, kind, position])
+  @@map("version_highlights")
+}
+
+model VersionChallenge {
+  id       String @id @default(cuid()) @db.VarChar(30)
+  problem  String @db.Text
+  solution String @db.Text
+  position Int    @default(0)
+
+  versionId String         @db.VarChar(30)
+  version   ProjectVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId, position])
+  @@map("version_challenges")
+}
+
+// ─────────────────────────── Technologies et compétences ───────────────────────────
+
+// Référentiel unique : une technologie avec showInSkills = true apparaît dans les compétences.
+model Technology {
+  id            String   @id @default(cuid()) @db.VarChar(30)
+  name          String   @unique @db.VarChar(60)
+  slug          String   @unique @db.VarChar(80)
+  showInSkills  Boolean  @default(false)
+  skillPosition Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  skillCategoryId String?        @db.VarChar(30)
+  skillCategory   SkillCategory? @relation(fields: [skillCategoryId], references: [id], onDelete: SetNull)
+
+  versions VersionTechnology[]
+
+  @@index([skillCategoryId, showInSkills, skillPosition])
+  @@map("technologies")
+}
+
+// Seule relation N-N du modèle, explicite pour porter l'ordre d'affichage.
+model VersionTechnology {
+  position Int @default(0)
+
+  versionId String         @db.VarChar(30)
+  version   ProjectVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  technologyId String     @db.VarChar(30)
+  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Restrict)
+
+  @@id([versionId, technologyId])
+  @@index([technologyId])
+  @@map("version_technologies")
+}
+
+model SkillCategory {
+  id           String       @id @default(cuid()) @db.VarChar(30)
+  name         String       @unique @db.VarChar(60)
+  slug         String       @unique @db.VarChar(80)
+  isVisible    Boolean      @default(true)
+  position     Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  technologies Technology[]
+
+  @@index([isVisible, position])
+  @@map("skill_categories")
+}
+
+model SkillPillar {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  title       String   @db.VarChar(80)
+  description String   @db.VarChar(300)
+  iconKey     String   @default("code") @db.VarChar(30)
+  isVisible   Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isVisible, position])
+  @@map("skill_pillars")
+}
+
+// ─────────────────────────────── Médias ───────────────────────────────
+
+// Le fichier vit sur le volume de stockage ; la base n'en garde que les métadonnées.
+model Media {
+  id           String    @id @default(cuid()) @db.VarChar(30)
+  kind         MediaKind
+  storageKey   String    @unique @db.VarChar(255) // chemin relatif généré, jamais le nom d'origine
+  originalName String    @db.VarChar(255)
+  mimeType     String    @db.VarChar(100)
+  sizeBytes    Int       @db.UnsignedInt
+  width        Int?      @db.UnsignedInt
+  height       Int?      @db.UnsignedInt
+  alt          String    @default("") @db.VarChar(300) // obligatoire pour une image (validation applicative)
+  checksum     String?   @db.Char(64) // SHA-256, détection des doublons
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Rangement purement logique : changer de dossier ne touche ni au fichier, ni à
+  // son URL, ni aux associations. Vide = « Non classés ».
+  folderId String?      @db.VarChar(30)
+  folder   MediaFolder? @relation(fields: [folderId], references: [id], onDelete: Restrict)
+
+  projectCovers     Project[]           @relation("ProjectCover")
+  projectIcons      Project[]           @relation("ProjectIcon")
+  versionCovers     ProjectVersion[]    @relation("VersionCover")
+  screenshots       VersionScreenshot[]
+  settingsAsCv      SiteSettings[]      @relation("SiteCv")
+  settingsAsOgImage SiteSettings[]      @relation("SiteOgImage")
+  settingsAsProfile SiteSettings[]      @relation("SiteProfilePhoto")
+  timelineEntries   TimelineEntry[]
+
+  @@index([kind, createdAt])
+  @@index([checksum])
+  @@index([folderId, createdAt])
+  @@map("media")
+}
+
+// Dossiers virtuels de la médiathèque (3 niveaux au plus, règle du service).
+// Restrict partout : un dossier ne disparaît qu'une fois vide (ni sous-dossier, ni média).
+model MediaFolder {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  name      String   @db.VarChar(80)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parentId String?       @db.VarChar(30)
+  parent   MediaFolder?  @relation("MediaFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children MediaFolder[] @relation("MediaFolderTree")
+  media    Media[]
+
+  // Unicité du nom entre frères (à la racine, parentId NULL : contrôle du service).
+  @@unique([parentId, name])
+  @@map("media_folders")
+}
+
+model VersionScreenshot {
+  id       String  @id @default(cuid()) @db.VarChar(30)
+  alt      String? @db.VarChar(300) // prioritaire sur Media.alt
+  caption  String? @db.VarChar(200)
+  position Int     @default(0)
+
+  versionId String         @db.VarChar(30)
+  version   ProjectVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  mediaId String @db.VarChar(30)
+  media   Media  @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([versionId, mediaId])
+  @@index([versionId, position])
+  @@index([mediaId])
+  @@map("version_screenshots")
+}
+
+// ─────────────────────────────── Parcours ───────────────────────────────
+
+model TimelineEntry {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  periodLabel String   @db.VarChar(40)
+  title       String   @db.VarChar(160)
+  description String   @db.Text
+  iconKey     String   @default("code") @db.VarChar(30)
+  isVisible   Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Illustration (logo d'école, d'entreprise…) : prioritaire sur iconKey, qui reste le repli.
+  imageMediaId String? @db.VarChar(30)
+  imageMedia   Media?  @relation(fields: [imageMediaId], references: [id], onDelete: Restrict)
+
+  @@index([isVisible, position])
+  @@index([imageMediaId])
+  @@map("timeline_entries")
+}
+
+// ─────────────────────────────── Réglages du site ───────────────────────────────
+
+// Ligne unique (id = 1), écrite uniquement par upsert.
+model SiteSettings {
+  id Int @id @default(1)
+
+  heroStatusLabel String @db.VarChar(120)
+  heroRoleLine    String @db.VarChar(160)
+  heroTagline     String @db.VarChar(160)
+  heroTaglineSub  String @db.VarChar(400)
+
+  presentationTitle String  @db.VarChar(120)
+  presentationBody  String  @db.Text // Markdown léger, paragraphes séparés par une ligne vide
+  presentationQuote String? @db.VarChar(300)
+
+  contactEmail     String  @db.VarChar(254)
+  availabilityNote String? @db.VarChar(200)
+
+  linkedinUrl String? @db.VarChar(500)
+  githubUrl   String? @db.VarChar(500)
+
+  seoTitle       String @db.VarChar(70)
+  seoDescription String @db.VarChar(160)
+
+  ogImageMediaId String? @db.VarChar(30)
+  ogImageMedia   Media?  @relation("SiteOgImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
+
+  cvMediaId String? @db.VarChar(30)
+  cvMedia   Media?  @relation("SiteCv", fields: [cvMediaId], references: [id], onDelete: Restrict)
+
+  // Photo de la carte de visite ; sans photo, les initiales sont affichées.
+  profilePhotoMediaId String? @db.VarChar(30)
+  profilePhotoMedia   Media?  @relation("SiteProfilePhoto", fields: [profilePhotoMediaId], references: [id], onDelete: Restrict)
+
+  updatedAt DateTime @updatedAt
+
+  @@index([ogImageMediaId])
+  @@index([cvMediaId])
+  @@index([profilePhotoMediaId])
+  @@map("site_settings")
+}
+
+// ─────────────────────────────── Messages ───────────────────────────────
+
+// Statut : handledAt renseigné = traité ; sinon readAt renseigné = lu ; sinon non lu.
+// notifiedAt vide = e-mail Resend non parti (relançable depuis l'administration).
+// submissionId : clé d'idempotence du formulaire (une nouvelle tentative ne crée
+// pas de doublon). Purge après CONTACT_RETENTION_DAYS (365 jours par défaut).
+model ContactMessage {
+  id           String    @id @default(cuid()) @db.VarChar(30)
+  submissionId String?   @unique @db.VarChar(36)
+  name         String    @db.VarChar(100)
+  email        String    @db.VarChar(254)
+  subject      String?   @db.VarChar(150)
+  message      String    @db.Text
+  readAt       DateTime?
+  handledAt    DateTime?
+  notifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([readAt, createdAt])
+  @@index([handledAt, createdAt])
+  @@index([createdAt])
+  @@map("contact_messages")
+}
+
+// ─────────────────────────────── Administration ───────────────────────────────
+
+// Compte unique créé par script. Sessions JWT (Auth.js) : pas de table de sessions.
+// Incrémenter sessionVersion invalide tous les JWT émis (contrôle dans le callback jwt).
+model AdminUser {
+  id                String    @id @default(cuid()) @db.VarChar(30)
+  email             String    @unique @db.VarChar(254)
+  displayName       String    @db.VarChar(80)
+  passwordHash      String    @db.VarChar(255) // Argon2id
+  sessionVersion    Int       @default(0)
+  passwordChangedAt DateTime?
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("admin_users")
+}
