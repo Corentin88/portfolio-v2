@@ -1,6 +1,8 @@
 # Portfolio 2.0
 
-Portfolio de **Corentin Lanaud**, développeur full-stack : parcours, compétences et projets, avec l'évolution de chaque projet de version en version (V1, V2…). Une administration privée permet de gérer tous les contenus sans toucher au code.
+Bienvenue sur le dépôt de mon Portfolio 2.0, une application que j'ai développée avec Next.js, React et TypeScript pour présenter mon parcours de développeur full-stack, mes compétences et mes projets.
+
+Cette nouvelle version me permet également de présenter l'évolution de mes applications (V1, V2…) et dispose d'une interface d'administration complète pour gérer les contenus, les projets et les médias sans intervenir directement dans le code.
 
 > L'ancien portfolio reste en ligne jusqu'à la mise en production de cette version. Le déploiement sur VPS est prévu ultérieurement : ce dépôt couvre aujourd'hui le développement local, la production locale sous Docker et l'intégration continue.
 
