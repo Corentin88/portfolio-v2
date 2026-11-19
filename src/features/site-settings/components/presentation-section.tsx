@@ -1,6 +1,7 @@
 import { Reveal } from "@/components/shared/reveal";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { BusinessCard } from "@/features/site-settings/components/business-card";
+import { CvLink } from "@/features/site-settings/components/cv-link";
 import type { PublicSiteSettings } from "@/features/site-settings/public-view";
 
 const OWNER_FIRST_NAME = "Corentin";
@@ -23,9 +24,11 @@ function WithName({ text }: { text: string }) {
 export function PresentationSection({
   presentation,
   statusLabel,
+  cvUrl,
 }: {
   presentation: PublicSiteSettings["presentation"];
   statusLabel: string;
+  cvUrl: string | null;
 }) {
   const [first, ...rest] = presentation.paragraphs;
 
@@ -73,6 +76,12 @@ export function PresentationSection({
                 </p>
               ) : null}
             </div>
+            {cvUrl ? (
+              <div className="mt-6 flex flex-wrap gap-3">
+                <CvLink cvUrl={cvUrl} action="download" />
+                <CvLink cvUrl={cvUrl} action="preview" />
+              </div>
+            ) : null}
           </Reveal>
         </div>
       </div>

@@ -1,6 +1,7 @@
-import { ArrowDown, ArrowUpRight, FileDown } from "lucide-react";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { PolyBackground } from "@/components/shared/poly-background";
 import { Reveal } from "@/components/shared/reveal";
+import { CvLink } from "@/features/site-settings/components/cv-link";
 import type { PublicSiteSettings } from "@/features/site-settings/public-view";
 
 type HeroSectionProps = {
@@ -75,14 +76,7 @@ export function HeroSection({ hero, contactHref, cvUrl }: HeroSectionProps) {
               </a>
             ) : null}
             {cvUrl ? (
-              <a
-                href={`${cvUrl}?download=1`}
-                className="inline-flex h-12 items-center rounded-full border border-white/40 bg-white/5 px-7 text-base font-medium text-white backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-white hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-              >
-                <FileDown className="mr-1.5 size-5" aria-hidden="true" />
-                Télécharger mon CV
-                <span className="sr-only"> (PDF)</span>
-              </a>
+              <CvLink cvUrl={cvUrl} action="download" variant="hero" />
             ) : null}
           </div>
         </Reveal>

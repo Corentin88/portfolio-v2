@@ -100,6 +100,7 @@ async function Home() {
         <PresentationSection
           presentation={settings.presentation}
           statusLabel={settings.hero.statusLabel}
+          cvUrl={settings.cvUrl}
         />
         <SkillsSection skills={skills} />
         <ProjectsSection catalog={catalog} />
