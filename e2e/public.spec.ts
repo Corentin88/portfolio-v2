@@ -206,9 +206,21 @@ test.describe("CV", () => {
     expect(inline.headers()["content-disposition"]).toMatch(/^inline;/);
 
     await page.goto("/");
-    const download = page.waitForEvent("download");
-    await page.getByRole("link", { name: /Télécharger mon CV/ }).click();
-    const file = await download;
-    expect(file.suggestedFilename()).toMatch(/\.pdf$/);
+    const introduction = page.getByRole("region", { name: "Introduction" });
+    const presentation = page.locator("#presentation");
+    const preview = presentation.getByRole("link", {
+      name: /Visualiser mon CV/,
+    });
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveAttribute("href", "/cv");
+    await expect(preview).toHaveAttribute("target", "_blank");
+
+    for (const section of [introduction, presentation]) {
+      const [file] = await Promise.all([
+        page.waitForEvent("download"),
+        section.getByRole("link", { name: /Télécharger mon CV/ }).click(),
+      ]);
+      expect(file.suggestedFilename()).toMatch(/\.pdf$/);
+    }
   });
 });
