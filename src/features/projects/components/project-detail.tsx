@@ -731,7 +731,7 @@ export function ProjectDetail({
                 Comparer {pair.from.label} / {pair.to.label}
               </button>
             </div>
-            <p className="font-mono text-[11px] text-muted-foreground/70">
+            <p className="font-mono text-[11px] text-muted-foreground">
               {mode === "gallery"
                 ? `${version.screenshots.length} capture${version.screenshots.length > 1 ? "s" : ""} · ${version.label}`
                 : "Captures affichées côte à côte"}

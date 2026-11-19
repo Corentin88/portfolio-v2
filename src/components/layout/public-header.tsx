@@ -14,6 +14,8 @@ type PublicHeaderProps = {
   brandHref?: string;
   /** Lien « Discutons » : absent tant qu'aucun moyen de contact réel n'est configuré. */
   contactHref: string | null;
+  /** Fond sombre permanent : texte blanc illisible sur le fond clair d'une page sans hero. */
+  alwaysSolid?: boolean;
 };
 
 const ctaClass =
@@ -23,6 +25,7 @@ export function PublicHeader({
   links,
   contactHref,
   brandHref = "#hero",
+  alwaysSolid = false,
 }: PublicHeaderProps) {
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("");
@@ -63,7 +66,7 @@ export function PublicHeader({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
 
-  const solid = scrolled || menuOpen;
+  const solid = alwaysSolid || scrolled || menuOpen;
 
   return (
     <header
