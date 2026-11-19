@@ -98,6 +98,7 @@ async function ProjectPageContent({ params, searchParams }: ProjectPageProps) {
       <PublicHeader
         links={NAV_LINKS}
         brandHref="/"
+        alwaysSolid
         contactHref={settings?.contactEmail ? "/#contact" : null}
       />
       <main id="contenu" className="flex-1 px-4 pt-24 pb-16 sm:px-6 lg:pt-28">
